@@ -1,0 +1,68 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: campus-life
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:campus_life}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:123456}
+    lettuce:
+      pool:
+        max-active: 10
+        max-idle: 10
+        min-idle: 1
+        time-between-eviction-runs: 10s
+  jackson:
+    default-property-inclusion: non_null
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    port: ${RABBITMQ_PORT:5672}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+mybatis-plus:
+  type-aliases-package: com.campus.life.entity
+
+logging:
+  level:
+    com.campus.life: debug
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# 秒杀链路可靠性参数（分布式锁 / 本地消息表 / 订单重试）
+seckill:
+  lock:
+    lease-seconds: 10
+  outbox:
+    relay-interval-ms: 5000
+    initial-delay-seconds: 30
+    retry-delay-seconds: 60
+    max-retry: 8
+  order:
+    retry-interval-ms: 5000
+    max-retry: 3
+    backoff-seconds: 10
+
+# 故障注入默认关闭，只在本地实验环境显式开启
+diagnosis:
+  experiment:
+    enabled: false

@@ -1,0 +1,10 @@
+target/
+.idea/
+*.iml
+*.log
+logs/
+.backup-*/
+tokens.txt
+.DS_Store
+tokens.csv
+application-local.yaml
