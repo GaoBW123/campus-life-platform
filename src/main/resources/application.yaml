@@ -58,6 +58,9 @@ seckill:
     retry-delay-seconds: 60
     max-retry: 8
   order:
+    timeout-seconds: 15 # 从受理开始计算的建单等待期限，关联原延迟队列 TTL
+    payment-timeout-seconds: 900 # 从建单成功开始计算的支付期限，仅由数据库扫描处理
+    sweep-interval-ms: 5000
     retry-interval-ms: 5000
     max-retry: 3
     backoff-seconds: 10

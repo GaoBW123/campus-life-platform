@@ -39,6 +39,7 @@ public class SeckillListener {
         log.info("收到秒杀订单消息，订单ID：{}", voucherOrder.getId());
         long startedAt = System.nanoTime();
         Timer.Sample sample = Timer.start(meterRegistry);
+        boolean cancelled = false;
         try {
             if (Boolean.TRUE.equals(voucherOrder.getDiagnosticMessage())
                     && faultSettings.isScenarioFault("REDELIVERY")) {
@@ -50,10 +51,11 @@ public class SeckillListener {
                 // 合成消息经过相同队列、消费者和指标，但不污染订单与库存数据。
                 voucherOrderService.simulateDiagnosticDatabaseStage();
             } else {
-                voucherOrderService.createVoucherOrder(voucherOrder);
+                cancelled = !voucherOrderService.createVoucherOrder(voucherOrder);
             }
             diagnosticEvents.add(voucherOrder.getId(),
-                    Boolean.TRUE.equals(voucherOrder.getDiagnosticMessage()) ? "SYNTHETIC_SUCCESS" : "SUCCESS",
+                    Boolean.TRUE.equals(voucherOrder.getDiagnosticMessage()) ? "SYNTHETIC_SUCCESS"
+                            : cancelled ? "CANCELLED" : "SUCCESS",
                     elapsedMillis(startedAt), null);
         } catch (RuntimeException e) {
             diagnosticEvents.add(voucherOrder.getId(), "FAILED",

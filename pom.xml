@@ -76,12 +76,6 @@
             <version>3.13.6</version>
         </dependency>
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <version>RELEASE</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
             <!-- Spring Boot 2.3 使用 Logback 1.2；6.6 与它兼容并且仍支持 Java 8。 -->

@@ -3,11 +3,14 @@ package com.campus.life.config;
 import org.springframework.amqp.core.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 
 @Configuration
 public class RabbitMQConfig {
+    @Value("${seckill.order.timeout-seconds:15}")
+    private long orderTimeoutSeconds;
 
     /**
      * 生产端和监听端共用 JSON 转换器，使 VoucherOrder 对象按明确类型序列化/反序列化。
@@ -27,7 +30,7 @@ public class RabbitMQConfig {
         return new DirectExchange(SECKILL_EXCHANGE);
     }
 
-    // 2. 延迟队列 (定时炸弹，千万不要给它写消费者！)
+    // 2. 建单等待延迟队列，由 TTL 转发至超时检查队列；不承担支付超时。
     public static final String DELAY_QUEUE = "order.delay.queue";
 
     // 死信交换机和路由键的名字 (供延迟队列到期后踢出消息使用)
@@ -37,8 +40,8 @@ public class RabbitMQConfig {
     @Bean
     public Queue delayQueue() {
         return QueueBuilder.durable(DELAY_QUEUE)
-                // 【测试时设为 15000 (15秒)，上线改为 900000 (15分钟)】
-                .ttl(15000)
+                // 与待建单期限一致；调整已有队列 TTL 需迁移队列。
+                .ttl(Math.toIntExact(Math.multiplyExact(orderTimeoutSeconds, 1000L)))
                 // 绑定死信交换机
                 .deadLetterExchange(DLX_EXCHANGE)
                 // 绑定死信路由键

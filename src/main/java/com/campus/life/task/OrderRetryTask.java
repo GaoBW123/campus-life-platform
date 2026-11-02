@@ -5,6 +5,7 @@ import com.campus.life.entity.OrderRetry;
 import com.campus.life.entity.VoucherOrder;
 import com.campus.life.mapper.OrderRetryMapper;
 import com.campus.life.service.IVoucherOrderService;
+import com.campus.life.service.OrderReservationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,6 +27,7 @@ public class OrderRetryTask {
     private final OrderRetryMapper orderRetryMapper;
 
     private final IVoucherOrderService voucherOrderService;
+    private final OrderReservationService reservations;
 
     @Value("${seckill.order.max-retry:3}")
     private int maxRetry;
@@ -33,9 +35,11 @@ public class OrderRetryTask {
     @Value("${seckill.order.backoff-seconds:10}")
     private long backoffSeconds;
 
-    public OrderRetryTask(OrderRetryMapper orderRetryMapper, IVoucherOrderService voucherOrderService) {
+    public OrderRetryTask(OrderRetryMapper orderRetryMapper, IVoucherOrderService voucherOrderService,
+                          OrderReservationService reservations) {
         this.orderRetryMapper = orderRetryMapper;
         this.voucherOrderService = voucherOrderService;
+        this.reservations = reservations;
     }
 
     @Scheduled(fixedDelayString = "${seckill.order.retry-interval-ms:5000}")
@@ -48,9 +52,12 @@ public class OrderRetryTask {
                 continue;
             }
             try {
-                voucherOrderService.createVoucherOrder(order);
-                orderRetryMapper.markSuccess(order.getId());
-                log.info("订单补入库成功，orderId={}", order.getId());
+                if (voucherOrderService.createVoucherOrder(order)) {
+                    orderRetryMapper.markSuccess(order.getId());
+                    log.info("订单补入库成功，orderId={}", order.getId());
+                } else {
+                    orderRetryMapper.markGiveUp(order.getId(), "订单已取消，禁止迟到重试建单");
+                }
             } catch (RuntimeException e) {
                 int next = record.getRetryCount() + 1;
                 String reason = e.getClass().getSimpleName() + ": " + e.getMessage();
@@ -65,14 +72,12 @@ public class OrderRetryTask {
     }
 
     /**
-     * 放弃重试：把预扣的 Redis 库存还回去，并清掉"一人一单"标记，用户可以重新抢。
-     * 超时死信监听器看到重试记录会跳过，所以回滚只在这里执行一次。
+     * 与超时检查共用取消状态；已经建单的订单不能因旧重试任务而被额外回补。
      */
     private void giveUp(OrderRetry record, String reason) {
-        VoucherOrder order = JSONUtil.toBean(record.getPayload(), VoucherOrder.class);
+        reservations.giveUp(record.getOrderId(), truncate(reason));
         orderRetryMapper.markGiveUp(record.getOrderId(), truncate(reason));
-        voucherOrderService.compensateRedisStock(order.getVoucherId(), order.getUserId());
-        log.error("订单重试耗尽，已回滚 Redis 预扣，orderId={}, reason={}", record.getOrderId(), reason);
+        log.warn("订单重试已终止，库存释放由订单状态决定，orderId={}, reason={}", record.getOrderId(), reason);
     }
 
     private String truncate(String text) {

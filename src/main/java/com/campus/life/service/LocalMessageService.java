@@ -1,6 +1,7 @@
 package com.campus.life.service;
 
 import com.campus.life.entity.LocalMessage;
+import com.campus.life.entity.VoucherOrder;
 import com.campus.life.mapper.LocalMessageMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class LocalMessageService {
     private static final int MAX_ERROR_LENGTH = 500;
 
     private final LocalMessageMapper localMessageMapper;
+    private final OrderReservationService reservations;
 
     @Value("${seckill.outbox.initial-delay-seconds:30}")
     private long initialDelaySeconds;
@@ -28,12 +30,15 @@ public class LocalMessageService {
     @Value("${seckill.outbox.retry-delay-seconds:60}")
     private long retryDelaySeconds;
 
-    public LocalMessageService(LocalMessageMapper localMessageMapper) {
+    public LocalMessageService(LocalMessageMapper localMessageMapper, OrderReservationService reservations) {
         this.localMessageMapper = localMessageMapper;
+        this.reservations = reservations;
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public boolean savePending(String messageId, String exchange, String routingKey, String payload) {
+    public boolean savePending(VoucherOrder order, String exchange, String routingKey, String payload) {
+        String messageId = String.valueOf(order.getId());
+        reservations.register(order);
         LocalMessage message = new LocalMessage()
                 .setMessageId(messageId)
                 .setExchange(exchange)
@@ -43,7 +48,8 @@ public class LocalMessageService {
                 .setRetryCount(0)
                 .setNextRetryTime(LocalDateTime.now().plusSeconds(initialDelaySeconds));
         try {
-            return localMessageMapper.insert(message) > 0;
+            if (localMessageMapper.insert(message) != 1) throw new IllegalStateException("本地消息没有成功写入");
+            return true;
         } catch (DuplicateKeyException e) {
             // 同一订单号重复写入，说明已经有一条待投递消息，直接视为成功
             log.info("本地消息已存在，跳过写入，messageId={}", messageId);

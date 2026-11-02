@@ -9,10 +9,8 @@ public interface IVoucherOrderService extends IService<VoucherOrder> {
     public Result seckillVoucher(Long voucher);
 
     /** 幂等 + 分布式锁 + 本地事务落库。 */
-    public void createVoucherOrder(VoucherOrder voucherOrder);
-
-    /** 回滚 Redis 预扣（库存 +1，并移除一人一单标记）。 */
-    public void compensateRedisStock(Long voucherId, Long userId);
+    /** 已建单/重复投递返回 true，已取消且禁止建单返回 false。 */
+    public boolean createVoucherOrder(VoucherOrder voucherOrder);
 
     /** 执行受控的数据库阶段延迟与计时，不写入业务表。 */
     public void simulateDiagnosticDatabaseStage();

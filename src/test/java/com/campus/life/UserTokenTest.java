@@ -7,6 +7,7 @@ import com.campus.life.dto.UserDTO;
 import com.campus.life.entity.User;
 import com.campus.life.service.IUserService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @SpringBootTest
+@EnabledIfEnvironmentVariable(named = "CAMPUS_GENERATE_TOKENS", matches = "true")
 class UserTokenTest {
 
     @Resource
